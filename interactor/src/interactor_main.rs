@@ -417,7 +417,7 @@ async fn test_cancel_offer_not_owner() {
 async fn test_cancel_offer_success() {
     let mut interact = ContractInteract::new().await;
     interact.deploy().await;
-    
+
     let token_id = String::from(TOKEN_ID);
     let token_nonce = 1u64;
     let token_amount = BigUint::<StaticApi>::from(1u128);
@@ -430,4 +430,21 @@ async fn test_cancel_offer_success() {
 
     let ivan_address = Bech32Address::from_bech32_string(String::from(IVAN_ADDRESS));
     interact.get_created_offers(ivan_address).await;
+
+}
+
+#[tokio::test]
+async fn test_created_offers_not_exists() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let address = Bech32Address::from_bech32_string(String::from(IVAN_ADDRESS));
+    interact.get_created_offers(address).await;
+}
+
+#[tokio::test]
+async fn test_wanted_offers_not_exists() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
+    interact.get_wanted_offers(address).await;
 }

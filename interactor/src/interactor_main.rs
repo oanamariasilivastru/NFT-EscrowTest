@@ -403,12 +403,48 @@ async fn test_cancel_offer_not_exists() {
 async fn test_cancel_offer_not_owner() {
     let mut interact = ContractInteract::new().await;
     interact.deploy().await;
-    let token_id = String::from("INTERNS-c9325f");
+    let token_id = String::from(TOKEN_ID);
     let token_nonce = 1u64;
     let token_amount = BigUint::<StaticApi>::from(1u128);
     let wanted_nft = TokenIdentifier::<StaticApi>::from_esdt_bytes(&b"MICE-9e007a"[..]);
     let wanted_nonce = 106u64;
-    let ref wanted_address = Bech32Address::from_bech32_string(String::from("erd1spyavw0956vq68xj8y4tenjpq2wd5a9p2c6j8gsz7ztyrnpxrruqzu66jx"));
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
     let offer_id = interact.escrow_succes(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address).await;
     interact.cancel_failed_adress(offer_id, ExpectError(4, "Only the offer creator can cancel it")).await;
+}
+
+#[tokio::test]
+async fn test_cancel_offer_success() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+
+    let token_id = String::from(TOKEN_ID);
+    let token_nonce = 1u64;
+    let token_amount = BigUint::<StaticApi>::from(1u128);
+    let wanted_nft = TokenIdentifier::<StaticApi>::from_esdt_bytes(&b"MICE-9e007a"[..]);
+    let wanted_nonce = 106u64;
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
+    let offer_id = interact.escrow_succes(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address).await;
+    
+    interact.cancel(offer_id).await;
+
+    let ivan_address = Bech32Address::from_bech32_string(String::from(IVAN_ADDRESS));
+    interact.get_created_offers(ivan_address).await;
+
+}
+
+#[tokio::test]
+async fn test_created_offers_not_exists() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let address = Bech32Address::from_bech32_string(String::from(IVAN_ADDRESS));
+    interact.get_created_offers(address).await;
+}
+
+#[tokio::test]
+async fn test_wanted_offers_not_exists() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
+    interact.get_wanted_offers(address).await;
 }

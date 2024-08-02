@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 
 mod proxy;
 
@@ -24,8 +25,8 @@ async fn main() {
 
     let mut args = std::env::args();
     let _ = args.next();
-    let cmd = args.next().expect("at least one argument required");
-    let mut interact = ContractInteract::new().await;
+    let _cmd = args.next().expect("at least one argument required");
+    let _interact = ContractInteract::new().await;
     // match cmd.as_str() {
     //     "deploy" => interact.deploy().await,
     //     "escrow" => interact.escrow().await,
@@ -164,7 +165,7 @@ impl ContractInteract {
 
     async fn cancel(&mut self, offer_id: u32) {
 
-        let response = self
+        self
             .interactor
             .tx()
             .from(&self.wallet_address)
@@ -177,7 +178,41 @@ impl ContractInteract {
             .run()
             .await;
 
-        // println!("Result: {response:?}");
+    }
+
+    async fn cancel_failed(&mut self, offer_id: u32, expected_result: ExpectError<'_>) {
+
+        self
+            .interactor
+            .tx()
+            .from(&self.wallet_address)
+            .to(self.state.current_address())
+            .gas(NumExpr("30,000,000"))
+            .typed(proxy::NftEscrowContractProxy)
+            .cancel(offer_id)
+            .returns(expected_result)
+            .prepare_async()
+            .run()
+            .await;
+
+    }
+
+    async fn cancel_failed_adress(&mut self, offer_id: u32, expected_result: ExpectError<'_>) {
+
+        let wallet_address = self.interactor.register_wallet(test_wallets::carol());
+        self
+            .interactor
+            .tx()
+            .from(wallet_address)
+            .to(self.state.current_address())
+            .gas(NumExpr("30,000,000"))
+            .typed(proxy::NftEscrowContractProxy)
+            .cancel(offer_id)
+            .returns(expected_result)
+            .prepare_async()
+            .run()
+            .await;
+
     }
 
     async fn accept(&mut self, token_id: String, token_nonce: u64, token_amount: BigUint<StaticApi>, offer_id: u32) {

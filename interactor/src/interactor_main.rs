@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 
 mod proxy;
 
@@ -21,8 +22,8 @@ async fn main() {
 
     let mut args = std::env::args();
     let _ = args.next();
-    let cmd = args.next().expect("at least one argument required");
-    let mut interact = ContractInteract::new().await;
+    let _cmd = args.next().expect("at least one argument required");
+    let _interact = ContractInteract::new().await;
     // match cmd.as_str() {
     //     "deploy" => interact.deploy().await,
     //     "escrow" => interact.escrow().await,
@@ -88,7 +89,7 @@ struct ContractInteract {
 impl ContractInteract {
     async fn new() -> Self {
         let mut interactor = Interactor::new(GATEWAY).await;
-        let wallet_address = interactor.register_wallet(test_wallets::alice());
+        let wallet_address = interactor.register_wallet(test_wallets::ivan());
         
         let contract_code = BytesValue::interpret_from(
             "mxsc:../output/nft-escrow.mxsc.json",
@@ -162,7 +163,7 @@ impl ContractInteract {
 
     async fn cancel(&mut self, offer_id: u32) {
 
-        let response = self
+        self
             .interactor
             .tx()
             .from(&self.wallet_address)
@@ -175,7 +176,41 @@ impl ContractInteract {
             .run()
             .await;
 
-        // println!("Result: {response:?}");
+    }
+
+    async fn cancel_failed(&mut self, offer_id: u32, expected_result: ExpectError<'_>) {
+
+        self
+            .interactor
+            .tx()
+            .from(&self.wallet_address)
+            .to(self.state.current_address())
+            .gas(NumExpr("30,000,000"))
+            .typed(proxy::NftEscrowContractProxy)
+            .cancel(offer_id)
+            .returns(expected_result)
+            .prepare_async()
+            .run()
+            .await;
+
+    }
+
+    async fn cancel_failed_adress(&mut self, offer_id: u32, expected_result: ExpectError<'_>) {
+
+        let wallet_address = self.interactor.register_wallet(test_wallets::carol());
+        self
+            .interactor
+            .tx()
+            .from(wallet_address)
+            .to(self.state.current_address())
+            .gas(NumExpr("30,000,000"))
+            .typed(proxy::NftEscrowContractProxy)
+            .cancel(offer_id)
+            .returns(expected_result)
+            .prepare_async()
+            .run()
+            .await;
+
     }
 
     async fn accept(&mut self, token_id: String, token_nonce: u64, token_amount: BigUint<StaticApi>, offer_id: u32) {
@@ -291,7 +326,7 @@ async fn test_deploy() {
 #[tokio::test]
 async fn test_escrow_nonce_zero() {
     let mut interact = ContractInteract::new().await;
-    let token_id = String::from("BSK-476470"); // to extract into a constant
+    let token_id = String::from("INTERNS-c9325f"); // to extract into a constant
     let token_nonce = 0u64;
     let token_amount = BigUint::<StaticApi>::from(5u128);
     let wanted_nft = TokenIdentifier::from_esdt_bytes(&b"nft-nicu"[..]);
@@ -303,7 +338,7 @@ async fn test_escrow_nonce_zero() {
 #[tokio::test]
 async fn test_escrow_value_zero() {
     let mut interact = ContractInteract::new().await;
-    let token_id = String::from("META-2ab8be"); // to extract into a constant
+    let token_id = String::from("INTERNS-c9325f"); // to extract into a constant
     let token_nonce = 1u64;
     let token_amount = BigUint::<StaticApi>::from(2u128);
     let wanted_nft = TokenIdentifier::from_esdt_bytes(&b"nft-nicu"[..]);
@@ -313,10 +348,32 @@ async fn test_escrow_value_zero() {
 }
 
 #[tokio::test]
+async fn test_cancel_offer_not_exists() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let offer_id = 123u32;
+    interact.cancel_failed(offer_id, ExpectError(4, "Offer does not exist")).await;
+}
+
+#[tokio::test]
+async fn test_cancel_offer_not_owner() {
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let token_id = String::from("INTERNS-c9325f");
+    let token_nonce = 1u64;
+    let token_amount = BigUint::<StaticApi>::from(1u128);
+    let wanted_nft = TokenIdentifier::<StaticApi>::from_esdt_bytes(&b"MICE-9e007a"[..]);
+    let wanted_nonce = 106u64;
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from("erd1spyavw0956vq68xj8y4tenjpq2wd5a9p2c6j8gsz7ztyrnpxrruqzu66jx"));
+    let offer_id = interact.escrow_succes(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address).await;
+    interact.cancel_failed_adress(offer_id, ExpectError(4, "Only the offer creator can cancel it")).await;
+}
+
+#[tokio::test]
 async fn test_all_smooth() {
     let mut interact = ContractInteract::new().await;
     interact.deploy().await;
-    let token_id = String::from("META-2ab8be"); // to extract into a constant
+    let token_id = String::from("INTERNS-c9325f"); // to extract into a constant
     let token_nonce = 1u64;
     let token_amount = BigUint::<StaticApi>::from(1u128);
     let wanted_nft = TokenIdentifier::<StaticApi>::from_esdt_bytes(&b"MICE-9e007a"[..]);

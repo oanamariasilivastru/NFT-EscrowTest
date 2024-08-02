@@ -13,6 +13,9 @@ use std::{
 
 const GATEWAY: &str = sdk::gateway::DEVNET_GATEWAY;
 const STATE_FILE: &str = "state.toml";
+const IVAN_ADDRESS: &str = "erd13x29rvmp4qlgn4emgztd8jgvyzdj0p6vn37tqxas3v9mfhq4dy7shalqrx";
+const WANTED_ADDRESS_STRING: &str = "erd1spyavw0956vq68xj8y4tenjpq2wd5a9p2c6j8gsz7ztyrnpxrruqzu66jx";
+const TOKEN_ID: &str = "INTERNS-c9325f";
 
 
 #[tokio::main]
@@ -88,7 +91,7 @@ struct ContractInteract {
 impl ContractInteract {
     async fn new() -> Self {
         let mut interactor = Interactor::new(GATEWAY).await;
-        let wallet_address = interactor.register_wallet(test_wallets::alice());
+        let wallet_address = interactor.register_wallet(test_wallets::ivan());
         
         let contract_code = BytesValue::interpret_from(
             "mxsc:../output/nft-escrow.mxsc.json",
@@ -139,14 +142,13 @@ impl ContractInteract {
             .run()
             .await;
 
-        println!("Result: {:?}", response);
+        println!("Result Escrow Success: {:?}", response);
         response
     }
 
     async fn escrow_fail(&mut self, token_id: String, token_nonce: u64, token_amount: BigUint<StaticApi>, 
                     wanted_nft: TokenIdentifier<StaticApi>, wanted_nonce: u64, wanted_address: &Bech32Address, expected_result: ExpectError<'_>) { 
-        let response = self
-            .interactor
+        self.interactor
             .tx()
             .from(&self.wallet_address)
             .to(self.state.current_address())
@@ -196,8 +198,8 @@ impl ContractInteract {
         println!("Result: {response:?}");
     }
 
-    async fn get_created_offers(&mut self) {
-        let address = bech32::decode("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th");
+    async fn get_created_offers(&mut self, address: Bech32Address) {
+        // let address = bech32::decode("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th");
 
         let result_value = self
             .interactor
@@ -213,8 +215,8 @@ impl ContractInteract {
         println!("Result created offers: {result_value:?}");
     }
 
-    async fn get_wanted_offers(&mut self) {
-        let address = bech32::decode("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th");
+    async fn get_wanted_offers(&mut self, address: Bech32Address) {
+        // let address = bech32::decode("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th");
 
         let result_value = self
             .interactor
@@ -291,42 +293,65 @@ async fn test_deploy() {
 #[tokio::test]
 async fn test_escrow_nonce_zero() {
     let mut interact = ContractInteract::new().await;
-    let token_id = String::from("BSK-476470"); // to extract into a constant
+    let token_id = String::from("NICU-970292");
     let token_nonce = 0u64;
     let token_amount = BigUint::<StaticApi>::from(5u128);
-    let wanted_nft = TokenIdentifier::from_esdt_bytes(&b"nft-nicu"[..]);
+    let wanted_nft = TokenIdentifier::from_esdt_bytes(&b""[..]);
     let wanted_nonce = 10u64;
-    let ref wanted_address = Bech32Address::from_bech32_string(String::from("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th"));
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
     interact.escrow_fail(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address, ExpectError(4, "ESDT is not an NFT")).await;
 }
 
 #[tokio::test]
-async fn test_escrow_value_zero() {
+async fn test_escrow_value_diff_one() {
     let mut interact = ContractInteract::new().await;
-    let token_id = String::from("META-2ab8be"); // to extract into a constant
+    let token_id = String::from(TOKEN_ID); 
     let token_nonce = 1u64;
     let token_amount = BigUint::<StaticApi>::from(2u128);
-    let wanted_nft = TokenIdentifier::from_esdt_bytes(&b"nft-nicu"[..]);
+    let wanted_nft = TokenIdentifier::from_esdt_bytes(&b""[..]);
     let wanted_nonce = 10u64;
-    let ref wanted_address = Bech32Address::from_bech32_string(String::from("erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th"));
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
     interact.escrow_fail(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address, ExpectError(4, "ESDT is not an NFT")).await;
 }
 
 #[tokio::test]
-async fn test_all_smooth() {
+async fn test_escrow_wanted_nonce_zero() {
     let mut interact = ContractInteract::new().await;
-    interact.deploy().await;
-    let token_id = String::from("META-2ab8be"); // to extract into a constant
+    let token_id = String::from(TOKEN_ID); // "BSK-476470" 
+    let token_nonce = 1u64;
+    let token_amount = BigUint::<StaticApi>::from(1u128);
+    let wanted_nft = TokenIdentifier::from_esdt_bytes(&b""[..]);
+    let wanted_nonce = 0u64;
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
+    interact.escrow_fail(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address, ExpectError(4, "Wanted ESDT is not an NFT")).await;
+}
+
+#[tokio::test]
+async fn test_escrow_diff_addresses() {
+    let mut interact = ContractInteract::new().await;
+    let token_id = String::from(TOKEN_ID); // "BSK-476470" 
+    let token_nonce = 1u64;
+    let token_amount = BigUint::<StaticApi>::from(1u128);
+    let wanted_nft = TokenIdentifier::from_esdt_bytes(&b""[..]);
+    let wanted_nonce = 10u64;
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(test_wallets::ivan().address().to_string()));
+    interact.escrow_fail(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address, ExpectError(4, "Wanted address should not be the same as the caller")).await;
+}
+
+#[tokio::test]
+async fn test_escrow_success() {
+    let mut interact = ContractInteract::new().await;
+    let token_id = String::from(TOKEN_ID);
     let token_nonce = 1u64;
     let token_amount = BigUint::<StaticApi>::from(1u128);
     let wanted_nft = TokenIdentifier::<StaticApi>::from_esdt_bytes(&b"MICE-9e007a"[..]);
     let wanted_nonce = 106u64;
-    let ref wanted_address = Bech32Address::from_bech32_string(String::from("erd1spyavw0956vq68xj8y4tenjpq2wd5a9p2c6j8gsz7ztyrnpxrruqzu66jx"));
-    let offer_id = interact.escrow_succes(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address).await;
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
+    interact.escrow_succes(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address).await;
 
-    println!("Offer id: {offer_id}");
-    interact.cancel(offer_id).await;
+    let ivan_address = Bech32Address::from_bech32_string(String::from(IVAN_ADDRESS));
+    let wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
 
-    interact.get_created_offers().await;
-    interact.get_wanted_offers().await;
+    interact.get_created_offers(ivan_address).await;
+    interact.get_wanted_offers(wanted_address).await;
 }

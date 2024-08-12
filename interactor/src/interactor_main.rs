@@ -681,3 +681,37 @@ async fn test_wanted_offers_not_exists() {
     let address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
     interact.get_wanted_offers(address).await;
 }
+
+#[tokio::test]
+async fn test_multiple_offers_same_creator()
+{
+    let mut interact = ContractInteract::new().await;
+    interact.deploy().await;
+    let token_id = String::from(TOKEN_ID);
+    let token_nonce = 1u64;
+    let token_amount = BigUint::<StaticApi>::from(1u128);
+    let wanted_nft = TokenIdentifier::<StaticApi>::from_esdt_bytes(&b"MICE-9e007a"[..]);
+    let wanted_nonce = 106u64;
+    let ref wanted_address = Bech32Address::from_bech32_string(String::from(WANTED_ADDRESS_STRING));
+
+    let token_id1 = token_id.clone();
+    let token_amount1 = token_amount.clone();
+    let wanted_nft1 = wanted_nft.clone();
+
+    let token_id2 = token_id.clone();
+    let token_amount2 = token_amount.clone();
+
+    let address = Bech32Address::from_bech32_string(String::from(IVAN_ADDRESS));
+    let address2 = address.clone();
+
+    let offer1_id = interact.escrow_succes(token_id, token_nonce, token_amount, wanted_nft, wanted_nonce, wanted_address).await;
+    let offer2_id = interact.escrow_succes(token_id1, token_nonce, token_amount1, wanted_nft1, wanted_nonce, wanted_address).await;
+
+    interact.get_created_offers(address).await;
+
+    interact.accept_success(token_id2, token_nonce, token_amount2, offer2_id).await;
+    interact.cancel(offer1_id).await;
+
+    interact.get_created_offers(address2).await;
+    
+}
